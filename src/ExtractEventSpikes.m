@@ -1,6 +1,6 @@
-function windowGraph = ExtractEventSpikes(root, tetrode, cluster, window, exportModifiedNTTFlag)
+function varargout = ExtractEventSpikes(root, tetrode, cluster, window, viewEventSpikesFlag, exportModifiedNTTFlag)
     % windowGraph = 
-    %    EXTRACTEVENTSPIKES(root, tetrode, cluster, exportModifiedNTTFlag)
+    %    EXTRACTEVENTSPIKES(root, tetrode, cluster, window, exportModifiedNTTFlag)
     % Extracts spikes in the assigned cluster with a timestamp within a
     % certain time window after a TTL ON event.
     %
@@ -8,6 +8,8 @@ function windowGraph = ExtractEventSpikes(root, tetrode, cluster, window, export
     % tetrode: (int) number of the tetrode to be analyzed
     % cluster: (int) number of the cluster to be analyzed
     % window: (float) length of the time window to keep, in ms
+    % viewEventSpikesFlag: (logical) if true, will retun windowGraph as a
+    %       handle for a graph of the events-only spikes
     % exportModifiedNTTFlag: (logical) if true, will save a copy of the
     %       extracted spike file as TT#_events.ntt.
     
@@ -35,7 +37,7 @@ function windowGraph = ExtractEventSpikes(root, tetrode, cluster, window, export
         end
     end
 
-    Samples_volts = single(Samples) * 250e-6 / 32767;
+    Samples_volts = permute(single(Samples) * 250 / 32767, [3 1 2]);
     samplesToKeep = false(1, length(ScNumbers));
     
     clusterIndex = find(CellNumbers == cluster);
@@ -44,55 +46,56 @@ function windowGraph = ExtractEventSpikes(root, tetrode, cluster, window, export
     end
 
     for jj = 1 : length(EventTimeStamps)
-        inEvent = intersect(find(NTTTimeStamps >= EventTimeStamps(jj)), find(NTTTimeStamps <= (EventTimeStamps(jj) + window * 1e3)));
-        samplesToKeep(inEvent) = 1;
+        samplesToKeep(NTTTimeStamps >= EventTimeStamps(jj) & NTTTimeStamps <= (EventTimeStamps(jj) + window * 1e3)) = 1;
     end
     
-    windowGraph = figure('units', 'normalized', 'outerposition', [0 0 1 1]);
-    all = [subplot(2, 4, 1), subplot(2, 4, 2), subplot(2, 4, 5), subplot(2, 4, 6)];
-    win = [subplot(2, 4, 3), subplot(2, 4, 4), subplot(2, 4, 7), subplot(2, 4, 8)];
-    
-    linkaxes([all, win]);
-    subplot(all(1));
-    xlim([1, 32]);
-    ylim([-250e-6, 250e-6]);
-    
-    for ii = [all win]
-        subplot(ii);
-        hold on;
+    if viewEventSpikesFlag
+        varargout{1} = figure('units', 'normalized', 'outerposition', [0 0 1 1]);
+        all = [subplot(2, 4, 1), subplot(2, 4, 2), subplot(2, 4, 5), subplot(2, 4, 6)];
+        win = [subplot(2, 4, 3), subplot(2, 4, 4), subplot(2, 4, 7), subplot(2, 4, 8)];
+
+        linkaxes([all, win]);
+        subplot(all(1));
+        xlim([1, 32]);
+        ylim([-250, 250]);
+
+        for ii = 1 : length(all)
+            line(all(ii), 1:32, Samples_volts(clusterIndex, :, ii), 'Color', 'black', 'LineWidth', 0.1);
+            average = mean(Samples_volts(clusterIndex, :, ii), 1);
+            line(all(ii), 1:32, average, 'Color', 'red', 'LineWidth', 2);
+        end      
     end
-    
-    for ii = 1 : length(all)
-        for jj = clusterIndex
-            line(all(ii), 1:32, Samples_volts(:, ii, jj), 'Color', 'black');
-        end
-        average = mean(Samples_volts(:, ii, clusterIndex), 3);
-        line(all(ii), 1:32, average, 'Color', 'red');
-    end        
 
     NTTTimeStamps = NTTTimeStamps(samplesToKeep);
     ScNumbers = ScNumbers(samplesToKeep);
     CellNumbers = CellNumbers(samplesToKeep);
     Features = Features(:, samplesToKeep);
     Samples = Samples(:, :, samplesToKeep);
-    Samples_volts = Samples_volts(:, :, samplesToKeep);
-    
+    Samples_volts = Samples_volts(samplesToKeep, :, :);
+
     clusterIndex = find(CellNumbers == cluster);
-    if isempty(clusterIndex)
-        disp(['No spikes exist in cluster ', num2str(cluster), ' after event-extraction.']);
-    else
-        for ii = 1 : length(win)
-            for jj = clusterIndex
-                line(win(ii), 1:32, Samples_volts(:, ii, jj), 'Color', 'black');
-            end
-            average = mean(Samples_volts(:, ii, clusterIndex), 3);
-            line(win(ii), 1:32, average, 'Color', 'red');
-        end        
+    if viewEventSpikesFlag
+        if isempty(clusterIndex)
+            disp(['No spikes exist in cluster ', num2str(cluster), ' after event-extraction.']);
+        else
+            for ii = 1 : length(win)
+                line(win(ii), 1:32, Samples_volts(clusterIndex, :, ii), 'Color', 'black', 'LineWidth', 0.1);
+                average = mean(Samples_volts(clusterIndex, :, ii), 1);
+                line(win(ii), 1:32, average, 'Color', 'red', 'LineWidth', 2);
+            end        
+        end
+        
+        title(all(1), 'All spikes (uV)');
+        title(win(1), 'Event-only spikes (uV)');
     end
 
     if exportModifiedNTTFlag
         newNTTFile = [nttFile(1:end-4), '_events.ntt'];
-        Mat2NlxSpike(newNTTFile, 0, 1, [], ones(1,6), NTTTimeStamps, ScNumbers, CellNumbers, Features, Samples, Header);
-        disp('Event-extracted spikes saved in \TT', num2str(tetrode), '_events.ntt')
+        try
+            Mat2NlxSpike(newNTTFile, 0, 1, [], ones(1,6), NTTTimeStamps, ScNumbers, CellNumbers, Features, Samples, Header);
+            disp(['Event-extracted spikes saved in \TT', num2str(tetrode), '_events.ntt']);
+        catch
+            disp(['Tetrode ', num2str(tetrode), ' did not have enough event-only spikes to export an NTT file.']);
+        end
     end
 end

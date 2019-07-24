@@ -1,0 +1,18 @@
+# Don't track content of these folders
+test/
+
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.asv
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip

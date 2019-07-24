@@ -1,20 +1,26 @@
 %%% This code is designed to find stimulation-responsive cells and produce figures for visual assessment of the cell response. 
-close all
-clear all
-clc
+close all;
+clear;
+clc;
+%#ok<*UNRCH>
 
 %% Parameters (please fill in)
 % addpath(genpath('C:\Users\admin\Documents\MATLAB\NeuralynxMatlabImportExport_v6.0.0'));
-ComputerDir='C:\Users\erich\Dropbox\Research Files (Eric)\su-analysis\';
+ComputerDir = 'C:\Users\erich\Dropbox\Research Files (Eric)\su-analysis\';
 
-Date='test';
-MouseName='SUBLAT3-7';      % specify mouse name
+Date = 'test';                % specify date
+MouseName = 'SUBLAT3-7';      % specify mouse name
 
-ChooseFileNumber = [1];     % choose files to run
-ChooseTetrodeNumber = [6];    % choose tetrodes to run
+ChooseFileNumber = 1;         % choose files to run
+ChooseTetrodeNumber = 1:8;    % choose tetrodes to run
 ClustNumber = 0:10;
 
 hz=20;
+
+ViewEventOnlySpikesFlag = true;  % saves graphs of windowed spikes
+window = 8;                      % define the window width (in ms)
+SaveEventOnlyNTTFlag = true;    % saves windowed spikes into a seperate TT#_events.ntt file
+TetrodesToExtract = ChooseTetrodeNumber;         % choose tetrodes to extract for new NTTs.
 
 %% Setup
 switch hz
@@ -30,7 +36,7 @@ switch hz
     ChooseTimeScaleForRaster = 0.02;
 end
 
-ChooseTickSizeForRaster = (ChooseTimeScaleForRaster / 5); % default ChooseTickSizeForRaster=(ChooseTimeScaleForRaster/5)
+ChooseTickSizeForRaster = (ChooseTimeScaleForRaster / 5); % default ChooseTickSizeForRaster=(ChooseTimeScaleForRaster / 5)
 FileDir = dir([ComputerDir,'\',Date,'\',MouseName]);
 
 %% Loop through each file
@@ -61,8 +67,8 @@ for FileNumber = ChooseFileNumber + 2
             % Specifies filename: the correct filename format is "TT1_s.ntt","TT2_s.ntt" etc. 
             [TimeStamps_events, EventIDs, TTLs, Extras, EventStrings, Header] = Nlx2MatEV([FileFolder,'\','Events.nev'], [1 1 1 1 1], 1, 1, []); %event file
             [TimeStamps_cells, ScNumbers, CellNumbers, Features, Samples, Header] = Nlx2MatSpike([FileFolder,'\',['TT',num2str(TetrodeNumber),'_s.ntt']], [1 1 1 1 1], 1, 1, [] ); %clustering file
-            if ClustNumber==0 
-                ClustNumber=[0:10];
+            if ClustNumber == 0 
+                ClustNumber = 0:10;
             end
         catch
             try
@@ -78,7 +84,7 @@ for FileNumber = ChooseFileNumber + 2
         
         %% Loop through each cluster
         for Clust = ClustNumber 
-            disp(['Cluster number ', num2str(Clust)]);
+            disp(['  ', 'Cluster number ', num2str(Clust)]);
 
             if TimeStamps_cells(1) > TimeStamps_events(1)
                 TimeStamps_events_zeroed_s = (TimeStamps_events - TimeStamps_events(1)) / 1000000;
@@ -89,9 +95,7 @@ for FileNumber = ChooseFileNumber + 2
             end
 
             cell = cat(1, TimeStamps_cells_zeroed_s, CellNumbers); 
-
-            a = find(cell(2, :) ~= Clust); % "~=1" looks at cell#1, "~=2" looks at cell#2, etc.
-            cell(:,a) = [];
+            cell(:, CellNumbers ~= Clust) = []; % "~=1" looks at cell#1, "~=2" looks at cell#2, etc.
             
             %%% Now we test to ignore empty clusters:
             if isempty(cell)
@@ -100,102 +104,109 @@ for FileNumber = ChooseFileNumber + 2
             
             %%% Now we open a figure and fit it to fullscrean display:
             figure1 = figure('units', 'normalized', 'outerposition', [0 0 1 1]);
+            hold on;
             
             laser = cat(1, TimeStamps_events_zeroed_s, TTLs);
-            laser(laser == 0) = NaN;
+            laser = laser(:, logical(TTLs));
 
-            eventcount = find(laser(2,:) > 0); %counts the number of laser pulses
-            eventcount = size(eventcount); 
-
-            for i = 1 : eventcount(:,2) - 1 %numbers the laser pulses from 1 to last
-                laser(2, 2 + 2 * i) = 1 + i;
-            end
-
-            for i = 1 : eventcount(:,2)
-                X(i,:) = (laser(1,2*i) - ChooseTimeScaleForRaster) : 0.0001 : (laser(1,2*i) + ChooseTimeScaleForRaster); %sets the range around stimulation -0.1 s to +0.5 s 
-                sizeX = size(X(1,:)); %check the size of Xi array
-                Y(i,(1 : sizeX(:,2))) = i; %creates an Yi array for different trials Y1 - first trial Y2 - second trial etc.
-
-                [v, location_laser] = min(abs(X(i,:)-laser(1,2*i))); %finds the index of laser pulse time
-
-                a = find(cell(1,:) >= laser(1,2*i) - ChooseTimeScaleForRaster & cell(1,:) <= laser(1,2*i) + ChooseTimeScaleForRaster); %finds the indices around the laser pulse (50ms before and 100 ms after)
-                TF = isempty(a); %checks if it finds any values
-                if TF == 0        
-                    numberofspikes = size(a);
-                    location_cell = zeros(1,numberofspikes(:,2));
-
-                    for j = 1:numberofspikes(:,2)
-                        [v, location_cell(1,j)] = min(abs(X(i,:) - cell(1,a(j))));
-                    end
-
-                    X(i,:) = NaN; %changes all of the that are not event to NaN    
-                    X(i,location_laser) = 0; %makes the pulse location 0 
-
-                    for h = 1:numberofspikes(:,2) %inserts time values at the spike times
-                        X(i,location_cell(1,h)) = cell(1,a(h))-laser(1,2*i);
-                    end
-                end
-
-                if TF == 1
-                    X(i,:) = NaN; %changes all of the that are not event to NaN    
-                    X(i,location_laser) = 0; %makes the pulse location 0 
-                end
-
-                s(i) = scatter(X(i,:),Y(i,:));
-                    hold on
-
-            end
+            eventcount = sum(laser(2, :));
+            laser(2, :) = 1:eventcount;
             
-            %%% Now we set the visual parameters and title of the plot:
-            try
-                set(s, 'Marker', 'square', 'MarkerEdgeColor', 'k', 'MarkerFaceColor', 'k')
-            catch
-                continue
+            Xall = zeros(eventcount, ChooseTimeScaleForRaster * 2e4 + 1);
+
+            for i = 1 : eventcount
+                minBound = laser(1,i) - ChooseTimeScaleForRaster;
+                maxBound = laser(1,i) + ChooseTimeScaleForRaster;
+                X = (minBound : 0.0001 : maxBound); % defines the range around stimulation -0.2 s to +0.2 s 
+                sizeX = length(X); % check the size of Xi array
+                Y = i * ones(1, sizeX); % aligns the plotted spikes of this event into one horizontal line
+                [~, location_laser] = min(abs(X-laser(1,i))); % finds the index of laser pulse time
+
+                a = find(cell(1,:) >= minBound & cell(1,:) <= maxBound); % finds the spikes around the laser pulse
+                if ~isempty(a)  % checks if it finds any values
+                    numberofspikes = size(a);
+                    
+                    location_cell = zeros(1, numberofspikes(:,2));
+                    for j = 1:numberofspikes(:,2)
+                        [~, location_cell(1,j)] = min(abs(X - cell(1,a(j))));
+                    end
+
+                    X(:) = NaN; % changes all of the x values that are not events to NaN    
+                    X(location_laser) = 0; % cernters the pulse location on 0 
+
+                    for h = 1:numberofspikes(:,2) % inserts time values at the spike times
+                        X(location_cell(1,h)) = cell(1,a(h))-laser(1,i);
+                    end
+                else
+                    X(:) = NaN; % changes all of the that are not event to NaN    
+                    X(location_laser) = 0; % centers the pulse location on 0 
+                end
+
+                Xall(i, :) = X;
+                line(X, Y, 'LineStyle', 'none', 'Marker', 's', 'MarkerEdgeColor', 'k', 'MarkerFaceColor', 'k');
             end
+            hold off;
+            
             ax = gca;
             ax.XTick = -ChooseTimeScaleForRaster : ChooseTickSizeForRaster : ChooseTimeScaleForRaster;
             ax.XLim = [-ChooseTimeScaleForRaster ChooseTimeScaleForRaster];
             % ax.YLim = [0 50];
             % f1.InnerPosition = [680 558 800 350];
             SaveFileName1 = [MouseName, ' ', DateStamp, ' ',TimeStamp, ' ', RecDuration, ' ', Zlocation, ' ', TTLLaser, ' ', FoodType, ' ', ' T', num2str(TetrodeNumber), ' C', num2str(Clust)];
-            title(SaveFileName1);
-
-            %%% Now we save the image files in image(jpeg) and fig(MATLAB) format:
-            saveas(figure1, fullfile(FileFolder, SaveFileName1), 'jpeg'); % here you save the figure
-            % saveas(figure1, fullfile(FileFolder, SaveFileName1), 'fig');% here you save the figure in MATLAB format
-
-            hold off
+            title(SaveFileName1);           
 
             %% histogram
             figure2 = figure;
-            X(isnan(X)) = 0;
-            histo = nonzeros(X);
+            Xall = nonzeros(Xall);
             edges = ChooseEdgesForHistogram;
-            [HistoValues, HistoEdges] = histcounts(histo,edges);
+            [HistoValues, HistoEdges] = histcounts(Xall, edges);
             [ValMax, LocationMax] = max(HistoValues);
             LargestBinSizeToAverageBinRatio = 100 * ValMax / mean(HistoValues);
-            disp(['Largest Bin ', num2str(ValMax)])
-            disp(['Largest Bin To Average Bin Ratio (%) ', num2str(LargestBinSizeToAverageBinRatio)])
+            disp(['  ', 'Largest Bin ', num2str(ValMax)])
+            disp(['  ', 'Largest Bin To Average Bin Ratio (%) ', num2str(LargestBinSizeToAverageBinRatio)])
             LatancyMS = 1000 * HistoEdges(LocationMax);
-            disp(['Latency from light stimulation ', num2str(LatancyMS), ' ms'])
-            histogram(histo, edges, 'FaceColor', 'k', 'FaceAlpha', 1);
+            disp(['  ', 'Latency from light stimulation ', num2str(LatancyMS), ' ms'])
+            histogram(Xall, edges, 'FaceColor', 'k', 'FaceAlpha', 1);
 
             ax = gca;
             ax.XTick = -ChooseLimForHistogram : (ChooseLimForHistogram / 5) : ChooseLimForHistogram;
             ax.XLim = [-ChooseLimForHistogram ChooseLimForHistogram];
-            MaxLim =(round(1.2 * (size(cell, 2) / 80)));
-            if MaxLim < 30
-                MaxLim = 30;
-            end
+            MaxLim = round(1.2 * (size(cell, 2) / 80));
             if ChooseMaxLimitForHistogram ~= 0
                 MaxLim = ChooseMaxLimitForHistogram;
+            elseif MaxLim < 30
+                MaxLim = 30;
             end
             ax.YLim = [0 MaxLim];
             % figure2.InnerPosition = [680 558 800 350];
+            
             SaveFileName2 = ['Histogram', ' ', MouseName, ' ', DateStamp, ' ', TimeStamp, ' ', RecDuration, ' ', Zlocation, ' ', TTLLaser, ' ', FoodType, ' ', ' T', num2str(TetrodeNumber), ' C', num2str(Clust)];
             title(SaveFileName2);
-            saveas(figure2, fullfile(FileFolder, SaveFileName2), 'jpeg'); % here you save the figure
+            
+            if ViewEventOnlySpikesFlag && SaveEventOnlyNTTFlag
+                if any(TetrodesToExtract == TetrodeNumber)
+                    figure3 = ExtractEventSpikes(FileFolder, TetrodeNumber, Clust, window, true, true);
+                else
+                    figure3 = ExtractEventSpikes(FileFolder, TetrodeNumber, Clust, window, true, false);
+                end
+            elseif ViewEventOnlySpikesFlag
+                figure3 = ExtractEventSpikes(FileFolder, TetrodeNumber, Clust, window, true, false);
+            elseif SaveEventOnlyNTTFlag
+                ExtractEventSpikes(FileFolder, TetrodeNumber, Clust, window, false, true);
+            end
+            
+            %%% Now we save the image files in image(jpeg) and fig(MATLAB) format:
+            saveas(figure1, fullfile(FileFolder, SaveFileName1), 'jpeg');
+            saveas(figure2, fullfile(FileFolder, SaveFileName2), 'jpeg');
+            % saveas(figure1, fullfile(FileFolder, SaveFileName1), 'fig');% here you save the figure in MATLAB format
             % saveas(figure2, fullfile(FileFolder, SaveFileName2), 'fig');% here you save the figure in MATLAB format
+            if ViewEventOnlySpikesFlag
+                SaveFileName3 = ['EventOnlySpikes', ' ', MouseName, ' ', DateStamp, ' ', TimeStamp, ' ', RecDuration, ' ', Zlocation, ' ', TTLLaser, ' ', FoodType, ' ', ' T', num2str(TetrodeNumber), ' C', num2str(Clust)];
+                sgtitle(SaveFileName3); 
+                saveas(figure3, fullfile(FileFolder, SaveFileName3), 'jpeg');
+                % saveas(figure3, fullfile(FileFolder, SaveFileName3), 'fig');% here you save the figure in MATLAB format
+            end
+                
 
             % % %% average response time
             % % 
@@ -251,7 +262,6 @@ for FileNumber = ChooseFileNumber + 2
         end
     end
 end
-close all
 
 % clear 
 %% Example for one laser pulse
