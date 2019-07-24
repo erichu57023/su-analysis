@@ -6,20 +6,20 @@ clc;
 
 %% Parameters (please fill in)
 % addpath(genpath('C:\Users\admin\Documents\MATLAB\NeuralynxMatlabImportExport_v6.0.0'));
-ComputerDir = 'C:\Users\erich\Dropbox\Research Files (Eric)\su-analysis\';
+ComputerDir = 'D:\CheetahData\NG\Data\Temp Storage';
 
-Date = 'test';                % specify date
-MouseName = 'SUBLAT3-7';      % specify mouse name
+Date = '2019-07-24';          % specify date
+MouseName = 'SUBLAT1-1';      % specify mouse name
 
 ChooseFileNumber = 1;         % choose files to run
 ChooseTetrodeNumber = 1:8;    % choose tetrodes to run
 ClustNumber = 0:10;
 
-hz=20;
+hz=2;
 
-ViewEventOnlySpikesFlag = true;  % saves graphs of windowed spikes
+ViewEventOnlySpikesFlag = false;  % saves graphs of windowed spikes
 window = 8;                      % define the window width (in ms)
-SaveEventOnlyNTTFlag = true;    % saves windowed spikes into a seperate TT#_events.ntt file
+SaveEventOnlyNTTFlag = false;    % saves windowed spikes into a seperate TT#_events.ntt file
 TetrodesToExtract = ChooseTetrodeNumber;         % choose tetrodes to extract for new NTTs.
 
 %% Setup
