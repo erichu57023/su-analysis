@@ -66,21 +66,17 @@ function varargout = ExtractEventSpikes(root, tetrode, cluster, window, viewEven
         end      
     end
 
-    NTTTimeStamps = NTTTimeStamps(samplesToKeep);
-    ScNumbers = ScNumbers(samplesToKeep);
-    CellNumbers = CellNumbers(samplesToKeep);
-    Features = Features(:, samplesToKeep);
-    Samples = Samples(:, :, samplesToKeep);
-    Samples_volts = Samples_volts(samplesToKeep, :, :);
+    CellNumbers_new = CellNumbers(samplesToKeep);
+    Samples_volts_new = Samples_volts(samplesToKeep, :, :);
 
-    clusterIndex = find(CellNumbers == cluster);
+    clusterIndex = find(CellNumbers_new == cluster);
     if viewEventSpikesFlag
         if isempty(clusterIndex)
             disp(['No spikes exist in cluster ', num2str(cluster), ' after event-extraction.']);
         else
             for ii = 1 : length(win)
-                line(win(ii), 1:32, Samples_volts(clusterIndex, :, ii), 'Color', 'black', 'LineWidth', 0.1);
-                average = mean(Samples_volts(clusterIndex, :, ii), 1);
+                line(win(ii), 1:32, Samples_volts_new(clusterIndex, :, ii), 'Color', 'black', 'LineWidth', 0.1);
+                average = mean(Samples_volts_new(clusterIndex, :, ii), 1);
                 line(win(ii), 1:32, average, 'Color', 'red', 'LineWidth', 2);
             end        
         end
@@ -91,9 +87,11 @@ function varargout = ExtractEventSpikes(root, tetrode, cluster, window, viewEven
 
     if exportModifiedNTTFlag
         newNTTFile = [nttFile(1:end-4), '_events.ntt'];
+        CellNumbers(:) = 0;
+        CellNumbers(samplesToKeep) = 1;
         try
             Mat2NlxSpike(newNTTFile, 0, 1, [], ones(1,6), NTTTimeStamps, ScNumbers, CellNumbers, Features, Samples, Header);
-            disp(['Event-extracted spikes saved in \TT', num2str(tetrode), '_events.ntt']);
+            disp(['  ', 'Event-extracted spikes saved in \TT', num2str(tetrode), '_events.ntt, cluster 1.']);
         catch
             disp(['Tetrode ', num2str(tetrode), ' did not have enough event-only spikes to export an NTT file.']);
         end
