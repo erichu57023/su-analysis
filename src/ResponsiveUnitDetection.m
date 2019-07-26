@@ -6,20 +6,25 @@ clc;
 
 %% Parameters (please fill in)
 % addpath(genpath('C:\Users\admin\Documents\MATLAB\NeuralynxMatlabImportExport_v6.0.0'));
-ComputerDir = 'D:\CheetahData\NG\Data\Temp Storage';
+ComputerDir = 'D:\CheetahData\NG\Data\Temp Storage\test';
 
-Date = '2019-07-24';          % specify date
-MouseName = 'SUBLAT1-7';      % specify mouse name
+Date = 'date';          % specify date
+MouseName = 'animal';      % specify mouse name
 
 ChooseFileNumber = 1;         % choose files to run
-ChooseTetrodeNumber = 2;    % choose tetrodes to run
+ChooseTetrodeNumber = 1:8;      % choose tetrodes to run
 ClustNumber = 0:10;
 
-hz=20;
+hz = 2;
+
+convertDefaultFeaturesFlag = true;  % if true, changes NTT default features as they are run.
+defaultFeatures = {'NormalizedPeak', 'Height'};
+
+singleFigureFlag = true;       % plots histogram, raster and average on a single figure. (WIP)
 
 ViewEventOnlySpikesFlag = false;  % saves graphs of windowed spikes
 window = [1 4];                      % define the window width (in ms)
-SaveEventOnlyNTTFlag = true;    % saves windowed spikes into a seperate TT#_events.ntt file
+SaveEventOnlyNTTFlag = false;    % saves windowed spikes into a seperate TT#_events.ntt file
 TetrodesToExtract = ChooseTetrodeNumber;         % choose tetrodes to extract for new NTTs.
 
 %% Setup
@@ -262,6 +267,15 @@ for FileNumber = ChooseFileNumber + 2
             % % title(SaveFileName3);
             % % % saveas(figure3, fullfile(FileFolder, SaveFileName3), 'jpeg'); % here you save the figure
             close all
+        end
+        
+        %% Modifies NTT file default features for convenience.
+        if convertDefaultFeaturesFlag
+            try
+                modifyNTTFeatures([FileFolder,'\',['TT',num2str(TetrodeNumber),'_s.ntt']], defaultFeatures{1}, defaultFeatures{2});
+            catch
+                modifyNTTFeatures([FileFolder,'\',['TT',num2str(TetrodeNumber),'.ntt']], defaultFeatures{1}, defaultFeatures{2})
+            end
         end
     end
 end
