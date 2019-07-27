@@ -1,17 +1,17 @@
 %%% This code is designed to find stimulation-responsive cells and produce figures for visual assessment of the cell response. 
 close all;
-clear all;
+clear global;
 clc;
 %#ok<*UNRCH>
 
 %% Parameters (please fill in)
 % addpath(genpath('C:\Users\admin\Documents\MATLAB\NeuralynxMatlabImportExport_v6.0.0'));
-ComputerDir = 'D:\CheetahData\NG\Data\Temp Storage\test';
+ComputerDir = 'D:\CheetahData\NG\Data\Temp Storage';
 
-Date = 'date';          % specify date
-MouseName = 'animal';      % specify mouse name
+Date = '2019-07-26';          % specify date
+MouseName = 'SUBLAT4-5';      % specify mouse name
 
-ChooseFileNumber = 1;         % choose files to run
+ChooseFileNumber = 8;         % choose files to run
 ChooseTetrodeNumber = 1:8;      % choose tetrodes to run
 ClustNumber = 0:10;
 

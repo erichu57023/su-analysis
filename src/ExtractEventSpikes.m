@@ -88,13 +88,15 @@ function varargout = ExtractEventSpikes(root, tetrode, cluster, window, viewEven
     %% Saves the event-extracted spikes in a separate TT#_events.ntt file.
     if exportModifiedNTTFlag
         newNTTFile = [nttFile(1:end-4), '_events.ntt'];
+        fileName = strsplit(newNTTFile, '\');
+        fileName = fileName{end};
         CellNumbers(:) = 0;
         CellNumbers(samplesToKeep) = 1;
         try
             Mat2NlxSpike(newNTTFile, 0, 1, [], ones(1,6), NTTTimeStamps, ScNumbers, CellNumbers, Features, Samples, Header);
-            disp(['  ', 'Event-extracted spikes saved in \TT', num2str(tetrode), '_events.ntt, cluster 1.']);
+            disp(['  ', 'Event-extracted spikes saved in ', fileName, ' cluster 1.']);
         catch
-            disp(['Tetrode ', num2str(tetrode), ' did not have enough event-only spikes to export an NTT file.']);
+            disp([fileName, ' did not have enough event-only spikes to export an NTT file.']);
         end
     end
 end
