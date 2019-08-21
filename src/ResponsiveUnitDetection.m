@@ -6,31 +6,31 @@ clc;
 
 %% Parameters (please fill in)
 % addpath(genpath('C:\Users\admin\Documents\MATLAB\NeuralynxMatlabImportExport_v6.0.0'));
-ComputerDir = 'C:\Users\erich\Dropbox\Research Files (Eric)\su-analysis\';
+ComputerDir = 'C:\Users\erich\Downloads';
 
 Date = 'test';                % specify date
-MouseName = 'SUBLAT3-7';      % specify mouse name
+MouseName = 'animal';      % specify mouse name
 
 ChooseFileNumber = 1;         % choose files to run
-ChooseTetrodeNumber = 1:8;    % choose tetrodes to run
+ChooseTetrodeNumber = 4;    % choose tetrodes to run
 ClustNumber = 0:10;
 
-hz=20;
+hz=2;
 
-ViewEventOnlySpikesFlag = true;  % saves graphs of windowed spikes
+ViewEventOnlySpikesFlag = 0;  % saves graphs of windowed spikes
 window = 8;                      % define the window width (in ms)
-SaveEventOnlyNTTFlag = true;    % saves windowed spikes into a seperate TT#_events.ntt file
+SaveEventOnlyNTTFlag = 0;    % saves windowed spikes into a seperate TT#_events.ntt file
 TetrodesToExtract = ChooseTetrodeNumber;         % choose tetrodes to extract for new NTTs.
 
 %% Setup
 switch hz
     case 2
-    ChooseMaxLimitForHistogram = 0; % When this is set to 0 the code chooses the value.
+    ChooseMaxLimitForHistogram = 50; % When this is set to 0 the code chooses the value.
     ChooseLimForHistogram = 0.2;
     ChooseEdgesForHistogram = -ChooseLimForHistogram : 0.004 : ChooseLimForHistogram; % bin size is the middle value round((ChooseLimForHistogram/50),4)
     ChooseTimeScaleForRaster = 0.2;
     case 20
-    ChooseMaxLimitForHistogram = 100; % When this is set to 0 the code chooses the value.
+    ChooseMaxLimitForHistogram = 0; % When this is set to 0 the code chooses the value.
     ChooseLimForHistogram = 0.02;
     ChooseEdgesForHistogram = -ChooseLimForHistogram : 0.0004 : ChooseLimForHistogram; % bin size is the middle value round((ChooseLimForHistogram/50),4)
     ChooseTimeScaleForRaster = 0.02;
