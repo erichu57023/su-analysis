@@ -7,7 +7,7 @@ function varargout = ExtractEventSpikes(root, tetrode, cluster, window, viewEven
     % root: (char[]) the path of the folder containing the NTT file
     % tetrode: (int) number of the tetrode to be analyzed
     % cluster: (int) number of the cluster to be analyzed
-    % window: (float) length of the time window to keep, in ms
+    % window: (float[]) min-max of the time window to keep, in ms
     % viewEventSpikesFlag: (logical) if true, will retun windowGraph as a
     %       handle for a graph of the events-only spikes
     % exportModifiedNTTFlag: (logical) if true, will save a copy of the
@@ -20,7 +20,7 @@ function varargout = ExtractEventSpikes(root, tetrode, cluster, window, viewEven
     [EventTimeStamps, TTLs] = Nlx2MatEV(eventFile, [1 0 1 0 0], 0, 1, []);
     EventTimeStamps = EventTimeStamps(logical(TTLs));
 
-    %% Import NTT file, extract event windows, export modified NTT
+    %% Import NTT file, extract event windows, plot figure.
     try 
         nttFile = [root, '\TT', num2str(tetrode), '_s.ntt'];
         [NTTTimeStamps, ScNumbers, CellNumbers, Features, Samples, Header] = Nlx2MatSpike(nttFile, ones(1,5), 1, 1, []);
@@ -46,7 +46,7 @@ function varargout = ExtractEventSpikes(root, tetrode, cluster, window, viewEven
     end
 
     for jj = 1 : length(EventTimeStamps)
-        samplesToKeep(NTTTimeStamps >= EventTimeStamps(jj) & NTTTimeStamps <= (EventTimeStamps(jj) + window * 1e3)) = 1;
+        samplesToKeep(NTTTimeStamps >= EventTimeStamps(jj) + window(1) * 1e3 & NTTTimeStamps <= (EventTimeStamps(jj) + window(2) * 1e3)) = 1;
     end
     
     if viewEventSpikesFlag
@@ -66,21 +66,17 @@ function varargout = ExtractEventSpikes(root, tetrode, cluster, window, viewEven
         end      
     end
 
-    NTTTimeStamps = NTTTimeStamps(samplesToKeep);
-    ScNumbers = ScNumbers(samplesToKeep);
-    CellNumbers = CellNumbers(samplesToKeep);
-    Features = Features(:, samplesToKeep);
-    Samples = Samples(:, :, samplesToKeep);
-    Samples_volts = Samples_volts(samplesToKeep, :, :);
+    CellNumbers_new = CellNumbers(samplesToKeep);
+    Samples_volts_new = Samples_volts(samplesToKeep, :, :);
 
-    clusterIndex = find(CellNumbers == cluster);
+    clusterIndex = find(CellNumbers_new == cluster);
     if viewEventSpikesFlag
         if isempty(clusterIndex)
             disp(['No spikes exist in cluster ', num2str(cluster), ' after event-extraction.']);
         else
             for ii = 1 : length(win)
-                line(win(ii), 1:32, Samples_volts(clusterIndex, :, ii), 'Color', 'black', 'LineWidth', 0.1);
-                average = mean(Samples_volts(clusterIndex, :, ii), 1);
+                line(win(ii), 1:32, Samples_volts_new(clusterIndex, :, ii), 'Color', 'black', 'LineWidth', 0.1);
+                average = mean(Samples_volts_new(clusterIndex, :, ii), 1);
                 line(win(ii), 1:32, average, 'Color', 'red', 'LineWidth', 2);
             end        
         end
@@ -89,13 +85,18 @@ function varargout = ExtractEventSpikes(root, tetrode, cluster, window, viewEven
         title(win(1), 'Event-only spikes (uV)');
     end
 
+    %% Saves the event-extracted spikes in a separate TT#_events.ntt file.
     if exportModifiedNTTFlag
         newNTTFile = [nttFile(1:end-4), '_events.ntt'];
+        fileName = strsplit(newNTTFile, '\');
+        fileName = fileName{end};
+        CellNumbers(:) = 0;
+        CellNumbers(samplesToKeep) = 1;
         try
             Mat2NlxSpike(newNTTFile, 0, 1, [], ones(1,6), NTTTimeStamps, ScNumbers, CellNumbers, Features, Samples, Header);
-            disp(['Event-extracted spikes saved in \TT', num2str(tetrode), '_events.ntt']);
+            disp(['  ', 'Event-extracted spikes saved in ', fileName, ' cluster 1.']);
         catch
-            disp(['Tetrode ', num2str(tetrode), ' did not have enough event-only spikes to export an NTT file.']);
+            disp([fileName, ' did not have enough event-only spikes to export an NTT file.']);
         end
     end
 end

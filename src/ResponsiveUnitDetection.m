@@ -1,6 +1,6 @@
 %%% This code is designed to find stimulation-responsive cells and produce figures for visual assessment of the cell response. 
 close all;
-clear;
+clear global;
 clc;
 %#ok<*UNRCH>
 
@@ -11,15 +11,20 @@ ComputerDir = 'C:\Users\erich\Downloads';
 Date = 'test';                % specify date
 MouseName = 'animal';      % specify mouse name
 
-ChooseFileNumber = 1;         % choose files to run
-ChooseTetrodeNumber = 4;    % choose tetrodes to run
+ChooseFileNumber = 8;         % choose files to run
+ChooseTetrodeNumber = 1:8;      % choose tetrodes to run
 ClustNumber = 0:10;
 
-hz=2;
+hz = 2;
 
-ViewEventOnlySpikesFlag = 0;  % saves graphs of windowed spikes
-window = 8;                      % define the window width (in ms)
-SaveEventOnlyNTTFlag = 0;    % saves windowed spikes into a seperate TT#_events.ntt file
+convertDefaultFeaturesFlag = 1;  % if true, changes NTT default features as they are run.
+defaultFeatures = {'NormalizedPeak', 'Height'};
+
+singleFigureFlag = false;       % plots histogram, raster and average on a single figure. (WIP)
+
+ViewEventOnlySpikesFlag = false;  % saves graphs of windowed spikes
+window = [1 4];                      % define the window width (in ms)
+SaveEventOnlyNTTFlag = false;    % saves windowed spikes into a seperate TT#_events.ntt file
 TetrodesToExtract = ChooseTetrodeNumber;         % choose tetrodes to extract for new NTTs.
 
 %% Setup
@@ -63,21 +68,20 @@ for FileNumber = ChooseFileNumber + 2
     %% Loop through each tetrode
     for TetrodeNumber = ChooseTetrodeNumber
         disp(['Tetrode number ', num2str(TetrodeNumber)]);
-        try
+        tetrodeEventsNotSaved = SaveEventOnlyNTTFlag; % used to make sure event-extracted files are only created once for each tetrode, regardless of cluster number.
+        if isfile([FileFolder,'\TT', num2str(TetrodeNumber), '_s.ntt'])
             % Specifies filename: the correct filename format is "TT1_s.ntt","TT2_s.ntt" etc. 
-            [TimeStamps_events, EventIDs, TTLs, Extras, EventStrings, Header] = Nlx2MatEV([FileFolder,'\','Events.nev'], [1 1 1 1 1], 1, 1, []); %event file
-            [TimeStamps_cells, ScNumbers, CellNumbers, Features, Samples, Header] = Nlx2MatSpike([FileFolder,'\',['TT',num2str(TetrodeNumber),'_s.ntt']], [1 1 1 1 1], 1, 1, [] ); %clustering file
+            [TimeStamps_events, EventIDs, TTLs, Extras, EventStrings] = Nlx2MatEV([FileFolder,'\Events.nev'], [1 1 1 1 1], 0, 1, []); %event file
+            [TimeStamps_cells, ScNumbers, CellNumbers, Features, Samples] = Nlx2MatSpike([FileFolder,'\TT',num2str(TetrodeNumber),'_s.ntt'], [1 1 1 1 1], 0, 1, []); %clustering file
             if ClustNumber == 0 
                 ClustNumber = 0:10;
             end
-        catch
-            try
-                [TimeStamps_events, EventIDs, TTLs, Extras, EventStrings, Header] = Nlx2MatEV([FileFolder, '\', 'Events.nev'], [1 1 1 1 1], 1, 1, []); %event file
-                [TimeStamps_cells, ScNumbers, CellNumbers, Features, Samples, Header] = Nlx2MatSpike([FileFolder,'\', ['TT', num2str(TetrodeNumber), '.ntt']], [1 1 1 1 1], 1, 1, [] ); %clustering file
-                ClustNumber=0;          
-            catch
-                continue
-            end
+        elseif isfile([FileFolder,'\TT', num2str(TetrodeNumber), '.ntt'])
+            [TimeStamps_events, EventIDs, TTLs, Extras, EventStrings] = Nlx2MatEV([FileFolder, '\Events.nev'], [1 1 1 1 1], 0, 1, []); %event file
+            [TimeStamps_cells, ScNumbers, CellNumbers, Features, Samples] = Nlx2MatSpike([FileFolder,'\TT', num2str(TetrodeNumber), '.ntt'], [1 1 1 1 1], 0, 1, []); %clustering file
+            ClustNumber=0;          
+        else
+            continue;
         end
         % TimeStamps_cells_zeroed_s = (TimeStamps_cells-TimeStamps_cells(1)) / 1000000; %for spikes
         % TimeStamps_events_zeroed_s = (TimeStamps_events-TimeStamps_events(1)) / 1000000; %for laser pulses*
@@ -107,6 +111,7 @@ for FileNumber = ChooseFileNumber + 2
             hold on;
             
             laser = cat(1, TimeStamps_events_zeroed_s, TTLs);
+            TTLs(TTLs ~= 1) = 0;
             laser = laser(:, logical(TTLs));
 
             eventcount = sum(laser(2, :));
@@ -183,7 +188,8 @@ for FileNumber = ChooseFileNumber + 2
             SaveFileName2 = ['Histogram', ' ', MouseName, ' ', DateStamp, ' ', TimeStamp, ' ', RecDuration, ' ', Zlocation, ' ', TTLLaser, ' ', FoodType, ' ', ' T', num2str(TetrodeNumber), ' C', num2str(Clust)];
             title(SaveFileName2);
             
-            if ViewEventOnlySpikesFlag && SaveEventOnlyNTTFlag
+            %% 
+            if ViewEventOnlySpikesFlag && tetrodeEventsNotSaved
                 if any(TetrodesToExtract == TetrodeNumber)
                     figure3 = ExtractEventSpikes(FileFolder, TetrodeNumber, Clust, window, true, true);
                 else
@@ -191,9 +197,10 @@ for FileNumber = ChooseFileNumber + 2
                 end
             elseif ViewEventOnlySpikesFlag
                 figure3 = ExtractEventSpikes(FileFolder, TetrodeNumber, Clust, window, true, false);
-            elseif SaveEventOnlyNTTFlag
+            elseif tetrodeEventsNotSaved
                 ExtractEventSpikes(FileFolder, TetrodeNumber, Clust, window, false, true);
             end
+            tetrodeEventsNotSaved = false; % avoids saving _events.ntt files redundantly if there are multiple clusters in this tetrode.
             
             %%% Now we save the image files in image(jpeg) and fig(MATLAB) format:
             saveas(figure1, fullfile(FileFolder, SaveFileName1), 'jpeg');
@@ -259,6 +266,16 @@ for FileNumber = ChooseFileNumber + 2
             % % title(SaveFileName3);
             % % % saveas(figure3, fullfile(FileFolder, SaveFileName3), 'jpeg'); % here you save the figure
             close all
+        end
+    end
+    %% Modifies NTT file default features for convenience.
+    if convertDefaultFeaturesFlag
+        for TetrodeNumber = ChooseTetrodeNumber
+            if isfile([FileFolder, '\TT', num2str(TetrodeNumber),'_s.ntt'])
+                modifyNTTFeatures([FileFolder, '\',['TT', num2str(TetrodeNumber), '_s.ntt']], defaultFeatures{1}, defaultFeatures{2});
+            elseif isfile([FileFolder, '\TT', num2str(TetrodeNumber),'.ntt'])
+                modifyNTTFeatures([FileFolder, '\', ['TT', num2str(TetrodeNumber), '.ntt']], defaultFeatures{1}, defaultFeatures{2})
+            end
         end
     end
 end
